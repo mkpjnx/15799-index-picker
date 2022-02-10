@@ -1,0 +1,10 @@
+# Ignore Python bytecode cache files.
+__pycache__/
+
+# Ignore Python doit db.
+.doit.db
+.doit.db.*
+
+# Ignore artifacts generated
+actions.sql
+config.json
