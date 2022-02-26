@@ -8,3 +8,9 @@ __pycache__/
 # Ignore artifacts generated
 actions.sql
 config.json
+
+# jupyter
+.ipynb_checkpoints/
+
+# artifacts
+artifacts/
