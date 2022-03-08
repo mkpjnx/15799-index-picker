@@ -1,6 +1,10 @@
 from .action import ActionGenerator, Action
 import itertools
 import copy
+import pglast
+from pglast import ast, stream
+from pglast.enums.parsenodes import *
+
 
 class CreateIndexAction(Action):
     def __init__(self, table, cols, using=None):
@@ -10,16 +14,26 @@ class CreateIndexAction(Action):
         self.using = using
 
     def _to_sql(self):
+
         colnames = [c.replace("_", "") for c in self.cols]
         index_name = f'idx_{self.table}_{"_".join(colnames)}'
-        sqlstr = (
-            f'CREATE INDEX '
-            f'{index_name} ON {self.table} '
-            f'{"" if self.using is None else ("USING " + self.using)} '
-            f'({", ".join(self.cols)})'
-            ';'
+
+        self.ast = ast.IndexStmt(
+            idxname=index_name,
+            relation=ast.RangeVar(relname=self.table, inh=True),
+            accessMethod='btree' if self.using is None else self.using,
+            indexParams=tuple(
+                [
+                    ast.IndexElem(
+                        col,
+                        ordering=SortByDir.SORTBY_DEFAULT,
+                        nulls_ordering=SortByNulls.SORTBY_NULLS_DEFAULT,
+                    ) for col in self.cols]
+            ),
+            idxcomment=None,
+            if_not_exists=True,
         )
-        return sqlstr
+        return stream.RawStream(semicolon_after_last_statement=True)(self.ast)
 
 
 class SimpleIndexGenerator(ActionGenerator):
