@@ -89,13 +89,20 @@ def generate_sql(workload_csv, timeout):
     by_improvement = hypo_ests.loc[
         (hypo_ests['cost_diff']*hypo_ests['count']).sort_values().index]
 
-    print(by_improvement[["sample","cumsum","indexes_used","cost_diff",]])
+    pd.set_option('display.width', None)
+    pd.set_option('display.max_colwidth', -1)
+    print(by_improvement[["sample","indexes_used","count","cost_diff",]])
 
     ordered_candidates = []
     for _, row in by_improvement.iterrows():
         for ind in row['indexes_used']:
             if ind not in ordered_candidates:
                 ordered_candidates.append(ind)
+
+    # TODO(Mike): drop unused existing indexes
+    for _, _, idxname, _ in db_connector.get_existing_indexes():
+        if idxname not in ordered_candidates:
+            print(f'existing index {idxname} not used')
 
     # reverse lookup of index action from hypopg index name
     action_dict = {ind[0][1]:a for (a, ind) in hypo_results}
