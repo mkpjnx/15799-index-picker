@@ -1,6 +1,7 @@
 from .action import ActionGenerator, Action
 import itertools
 import copy
+
 import pglast
 from pglast import ast, stream
 from pglast.enums.parsenodes import *
@@ -34,6 +35,36 @@ class CreateIndexAction(Action):
             if_not_exists=True,
         )
         return stream.RawStream(semicolon_after_last_statement=True)(self.ast)
+
+
+class DropIndexAction(Action):
+    def __init__(self, idxname, cascade = False):
+        Action.__init__(self)
+        self.idxname = idxname
+        self.cascade = cascade
+
+    def _to_sql(self):
+
+        self.ast = ast.DropStmt(
+            objects = [self.idxname],
+            removeType = ObjectType.OBJECT_INDEX,
+            behavior = DropBehavior.DROP_CASCADE if self.cascade else DropBehavior.DROP_RESTRICT,
+            missing_ok = True,
+        )
+        return stream.RawStream(semicolon_after_last_statement=True)(self.ast)
+
+class DropIndexGenerator(ActionGenerator):
+    '''
+    For each existing index, yield a DROP INDEX statement.
+    '''
+
+    def __init__(self, indexes) -> None:
+        ActionGenerator.__init__(self)
+        self.indexes = indexes
+
+    def __iter__(self):
+        for _, indname, _, _ in self.indexes:
+            yield DropIndexAction(indname)
 
 
 class SimpleIndexGenerator(ActionGenerator):
