@@ -8,7 +8,7 @@ import action_generation.index_actions as index_actions
 
 import db_connector
 
-COST_EST_ITRS = 3
+COST_EST_ITRS = 5
 MAX_IND_WIDTH = 2
 
 def get_workload_colrefs(filtered):
@@ -42,6 +42,7 @@ def estimate_cost(parsed, conn, iterations = 10):
     col_mappings = db_connector.get_col_mappings()
     filtered = None
     costs = []
+    indexes_used = []
     for i in range(iterations):
         print(f'cost estimate iter: {i}')
         filtered = logparsing.aggregate_templates(parsed, col_mappings, 0.01)
@@ -49,12 +50,14 @@ def estimate_cost(parsed, conn, iterations = 10):
         # See how the plans changed
         filtered['newplan'] = filtered['sample'].apply(
             lambda x: db_connector.get_plan(x, conn))
-        filtered['indexes_used'] = filtered['newplan'].apply(find_indexes)
 
         cost = filtered['newplan'].apply(
             lambda x: x['Plan']['Total Cost'])
         costs.append(cost)
 
+        indexes_used.append(filtered['newplan'].apply(find_indexes))
+
+    filtered['indexes_used'] = pd.concat(indexes_used, axis = 1).sum(axis=1).apply(lambda x: set(x))
     filtered['cost'] = pd.concat(costs, axis = 1).mean(axis = 1)
     return filtered
 
@@ -129,5 +132,5 @@ def generate_sql(workload_csv, timeout):
             print(f'existing index {idxname} not used')
             final_adds.append(index_actions.DropIndexAction(idxname))
 
-    with open('actions.sql','w') as f:
+    with open('actions.sql','a') as f:
         f.writelines([str(a)+'\n' for a in final_adds])

@@ -39,6 +39,7 @@ def task_project1():
         # A list of actions. This can be bash or Python callables.
         "actions": [
             'echo "Generating Indexes."',
+            'cat pgtune.sql > action.sql',
             action_selection.generate_sql,
             'echo \'{"VACUUM": false}\' > config.json',
         ],

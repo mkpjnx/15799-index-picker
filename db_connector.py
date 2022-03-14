@@ -52,7 +52,10 @@ def get_col_mappings(conn=None):
 
 def get_existing_indexes(conn=None):
     query = f'''
-    SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname NOT LIKE 'pg_%';
+    SELECT tablename, indexname, indexdef
+    FROM pg_indexes
+    WHERE schemaname NOT LIKE 'pg_%'
+        AND indexdef NOT LIKE '%UNIQUE%';
     '''
     results = _exec(query, conn)
     output = [
