@@ -124,7 +124,7 @@ def generate_sql(workload_csv, timeout):
             existing_used.append(ind)
 
     # Drop unused existing indexes
-    for _, _, idxname, _ in db_connector.get_existing_indexes():
+    for _, idxname, _, _ in db_connector.get_existing_indexes():
         if idxname not in ordered_candidates:
             print(f'existing index {idxname} not used')
             final_adds.append(index_actions.DropIndexAction(idxname))
