@@ -8,6 +8,8 @@ import action_generation.index_actions as index_actions
 
 import db_connector
 
+COST_EST_ITRS = 3
+MAX_IND_WIDTH = 2
 
 def get_workload_colrefs(filtered):
     # indexes = db_connector.get_existing_indexes()
@@ -65,11 +67,11 @@ def generate_indexes(workload_csv):
     # Resulting hypopg indexes and corresponding CREATE INDEX action
     hypoconn = db_connector.get_conn()
     print("Estimating pre-hypothetical costs")
-    before = estimate_cost(parsed, hypoconn, iterations = 3)
+    before = estimate_cost(parsed, hypoconn, iterations = COST_EST_ITRS)
     hypo_results = []
 
     # Install hypothetical indexes
-    exhaustive = index_actions.ExhaustiveIndexGenerator(colrefs, 2)
+    exhaustive = index_actions.ExhaustiveIndexGenerator(colrefs, MAX_IND_WIDTH)
     actions = list(exhaustive)
     for action in actions:
         sql_str = str(action)
@@ -78,7 +80,7 @@ def generate_indexes(workload_csv):
         hypo_results.append((action, hypoconn.execute(hypo_sql).fetchall()))
 
     print("Estimating workload cost with hypothetical indexes")
-    hypo_ests = estimate_cost(parsed, hypoconn, iterations = 3)
+    hypo_ests = estimate_cost(parsed, hypoconn, iterations = COST_EST_ITRS)
 
     hypo_ests['cost_diff'] = hypo_ests['cost'] - before['cost']
     return hypo_results, hypo_ests
@@ -99,10 +101,6 @@ def generate_sql(workload_csv, timeout):
             if ind not in ordered_candidates:
                 ordered_candidates.append(ind)
 
-    # TODO(Mike): drop unused existing indexes
-    for _, _, idxname, _ in db_connector.get_existing_indexes():
-        if idxname not in ordered_candidates:
-            print(f'existing index {idxname} not used')
 
     # reverse lookup of index action from hypopg index name
     action_dict = {ind[0][1]:a for (a, ind) in hypo_results}
@@ -122,7 +120,14 @@ def generate_sql(workload_csv, timeout):
                 unordered_colref_set.add(canonical)
                 final_adds.append(a)
         else:
+            print(f'unknown action for index creation {ind}')
             existing_used.append(ind)
+
+    # Drop unused existing indexes
+    for _, _, idxname, _ in db_connector.get_existing_indexes():
+        if idxname not in ordered_candidates:
+            print(f'existing index {idxname} not used')
+            final_adds.append(index_actions.DropIndexAction(idxname))
 
     with open('actions.sql','w') as f:
         f.writelines([str(a)+'\n' for a in final_adds])
