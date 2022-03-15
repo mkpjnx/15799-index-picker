@@ -66,6 +66,7 @@ def generate_indexes(workload_csv):
     parsed = logparsing.parse_csv_log(workload_csv)
     filtered = logparsing.aggregate_templates(parsed, col_mappings, 0.01)
     colrefs = get_workload_colrefs(filtered)
+    ind_names = [iname for _, iname, _, _ in db_connector.get_existing_indexes()]
 
     # Resulting hypopg indexes and corresponding CREATE INDEX action
     hypoconn = db_connector.get_conn()
@@ -76,7 +77,10 @@ def generate_indexes(workload_csv):
     # Install hypothetical indexes
     exhaustive = index_actions.ExhaustiveIndexGenerator(colrefs, MAX_IND_WIDTH)
     actions = list(exhaustive)
+    
     for action in actions:
+        if action.index_name() in ind_names:
+            continue
         sql_str = str(action)
         print(f"Creating hypoindex {sql_str}")
         hypo_sql = f"SELECT * FROM hypopg_create_index('{sql_str}') ;"
@@ -90,7 +94,8 @@ def generate_indexes(workload_csv):
 
 def generate_sql(workload_csv, timeout):
     hypo_results, hypo_ests = generate_indexes(workload_csv)
-    
+    ind_names = [iname for _, iname, _, _ in db_connector.get_existing_indexes()]
+
     by_improvement = hypo_ests.loc[
         (hypo_ests['cost_diff']*hypo_ests['count']).sort_values().index]
 
@@ -122,6 +127,9 @@ def generate_sql(workload_csv, timeout):
             if canonical not in unordered_colref_set:
                 unordered_colref_set.add(canonical)
                 final_adds.append(a)
+        elif ind in ind_names:
+            print(f'using existing index {ind}')
+            existing_used.append(ind)
         else:
             print(f'unknown action for index creation {ind}')
             existing_used.append(ind)
@@ -132,5 +140,5 @@ def generate_sql(workload_csv, timeout):
             print(f'existing index {idxname} not used')
             final_adds.append(index_actions.DropIndexAction(idxname))
 
-    with open('actions.sql','a') as f:
+    with open('actions.sql','w') as f:
         f.writelines([str(a)+'\n' for a in final_adds])

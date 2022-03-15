@@ -1,3 +1,4 @@
+from operator import index
 from .action import ActionGenerator, Action
 import itertools
 import copy
@@ -14,10 +15,12 @@ class CreateIndexAction(Action):
         self.cols = cols
         self.using = using
 
-    def _to_sql(self):
-
+    def index_name(self):
         colnames = [c.replace("_", "") for c in self.cols]
-        index_name = f'idx_{self.table}_{"_".join(colnames)}'
+        return f'idx_{self.table}_{"_".join(colnames)}' 
+
+    def _to_sql(self):
+        index_name = self.index_name()
 
         self.ast = ast.IndexStmt(
             idxname=index_name,
