@@ -159,10 +159,10 @@ def get_all_colrefs(sql, col_mappings):
             (p_t, p_col) for p_t in potential_tables if (p_t, p_col) in col_mappings]
     return set(potential_colrefs)
 
-def aggregate_templates(df, col_mappings, percent_threshold=0.0):
+def aggregate_templates(df, col_mappings, percent_threshold=1):
     """
     Aggregate queries into templates based on pglast
-    Only retain queries that are at least {percent_threshold} of the workload
+    Only retain most common queries up to {percent_threshold} of the workload
     """
     aggregated = df[['queries', 'fingerprint']]\
         .groupby('fingerprint')\
@@ -171,7 +171,7 @@ def aggregate_templates(df, col_mappings, percent_threshold=0.0):
     aggregated['fraction'] = aggregated['count'] / aggregated['count'].sum()
     aggregated['cumsum'] = aggregated['fraction'].cumsum()
     filtered = pd.DataFrame(
-        aggregated[aggregated['fraction'] >= percent_threshold])
+        aggregated[aggregated['cumsum'] <= percent_threshold])
 
     # get column refs
     filtered['colrefs'] = filtered['sample'].apply(

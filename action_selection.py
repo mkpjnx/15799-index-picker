@@ -10,6 +10,7 @@ import db_connector
 
 COST_EST_ITRS = 5
 MAX_IND_WIDTH = 2
+FILTER_THRESH = 0.999
 
 def get_workload_colrefs(filtered):
     # indexes = db_connector.get_existing_indexes()
@@ -45,7 +46,7 @@ def estimate_cost(parsed, conn, iterations = 10):
     indexes_used = []
     for i in range(iterations):
         print(f'cost estimate iter: {i}')
-        filtered = logparsing.aggregate_templates(parsed, col_mappings, 0.01)
+        filtered = logparsing.aggregate_templates(parsed, col_mappings, FILTER_THRESH)
 
         # See how the plans changed
         filtered['newplan'] = filtered['sample'].apply(
@@ -64,7 +65,7 @@ def estimate_cost(parsed, conn, iterations = 10):
 def generate_indexes(workload_csv):
     col_mappings = db_connector.get_col_mappings()
     parsed = logparsing.parse_csv_log(workload_csv)
-    filtered = logparsing.aggregate_templates(parsed, col_mappings, 0.01)
+    filtered = logparsing.aggregate_templates(parsed, col_mappings, FILTER_THRESH)
     colrefs = get_workload_colrefs(filtered)
     ind_names = [iname for _, iname, _, _ in db_connector.get_existing_indexes()]
 
