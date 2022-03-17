@@ -67,7 +67,7 @@ def generate_indexes(workload_csv):
     parsed = logparsing.parse_csv_log(workload_csv)
     filtered = logparsing.aggregate_templates(parsed, col_mappings, FILTER_THRESH)
     colrefs = get_workload_colrefs(filtered)
-    ind_names = [iname for _, iname, _, _ in db_connector.get_existing_indexes()]
+    ind_names = [iname for _, iname, _, _, _ in db_connector.get_existing_indexes()]
 
     # Resulting hypopg indexes and corresponding CREATE INDEX action
     hypoconn = db_connector.get_conn()
@@ -95,13 +95,13 @@ def generate_indexes(workload_csv):
 
 def generate_sql(workload_csv, timeout):
     hypo_results, hypo_ests = generate_indexes(workload_csv)
-    ind_names = [iname for _, iname, _, _ in db_connector.get_existing_indexes()]
+    ind_names = [iname for _, iname, _, _, _ in db_connector.get_existing_indexes()]
 
     by_improvement = hypo_ests.loc[
         (hypo_ests['cost_diff']*hypo_ests['count']).sort_values().index]
 
     pd.set_option('display.width', None)
-    pd.set_option('display.max_colwidth', -1)
+    pd.set_option('display.max_colwidth', None)
     print(by_improvement[["sample","indexes_used","count","cost_diff",]])
 
     ordered_candidates = []
@@ -135,11 +135,16 @@ def generate_sql(workload_csv, timeout):
             print(f'unknown action for index creation {ind}')
             existing_used.append(ind)
 
+    unused_from_stat = [iname for _, iname, _ in db_connector.get_unused_indexes()]
+
     # Drop unused existing indexes
-    for _, idxname, _, _ in db_connector.get_existing_indexes():
-        if idxname not in ordered_candidates:
-            print(f'existing index {idxname} not used')
+    for _, idxname, _, _, _ in db_connector.get_existing_indexes():
+        if idxname in unused_from_stat:
+            print(f'Based on stats, existing index {idxname} not used')
             final_adds.append(index_actions.DropIndexAction(idxname))
+        elif idxname not in ordered_candidates:
+            print(f'Based on plan, existing index {idxname} not used')
+            #final_adds.append(index_actions.DropIndexAction(idxname))
 
     with open('actions.sql','w') as f:
         f.writelines([str(a)+'\n' for a in final_adds])

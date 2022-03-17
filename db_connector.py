@@ -52,10 +52,11 @@ def get_col_mappings(conn=None):
 
 def get_existing_indexes(conn=None):
     query = f'''
-    SELECT tablename, indexname, indexdef
-    FROM pg_indexes
-    WHERE schemaname NOT LIKE 'pg_%'
-        AND indexdef NOT LIKE '%UNIQUE%';
+    SELECT i.tablename, i.indexname, i.indexdef, pg_relation_size(c.oid)
+    FROM pg_indexes AS i, pg_class AS c
+    WHERE i.indexname = c.relname
+        AND i.schemaname NOT LIKE 'pg_%'
+        AND i.indexdef NOT LIKE '%UNIQUE%';
     '''
     results = _exec(query, conn)
     output = [
@@ -64,12 +65,30 @@ def get_existing_indexes(conn=None):
             iname, # index name
             indexdef, # reconstructed CreateStmt
             [indexParam.name for indexParam in # parsed index refs
-             pglast.parse_sql(indexdef)[0].stmt.indexParams]
+             pglast.parse_sql(indexdef)[0].stmt.indexParams],
+            size
         )
-        for (tname, iname, indexdef) in results
+        for (tname, iname, indexdef, size) in results
     ]
     return output
 
+def get_unused_indexes(conn=None):
+    query = '''
+    SELECT s.relname AS tablename,
+        s.indexrelname AS indexname,
+        pg_relation_size(s.indexrelid) AS index_size
+    FROM pg_catalog.pg_stat_user_indexes s
+    JOIN pg_catalog.pg_index i ON s.indexrelid = i.indexrelid
+    WHERE s.idx_scan = 0      -- has never been scanned
+        AND 0 <>ALL (i.indkey)  -- no index column is an expression
+        AND s.schemaname = 'public'
+        AND NOT i.indisunique   -- is not a UNIQUE index
+        AND NOT EXISTS          -- does not enforce a constraint
+            (SELECT 1 FROM pg_catalog.pg_constraint c
+            WHERE c.conindid = s.indexrelid)
+    ORDER BY pg_relation_size(s.indexrelid) DESC;
+    '''
+    return _exec(query, conn)
 
 def get_plan(sql, conn=None):
     return _exec(f'''

@@ -66,7 +66,7 @@ class DropIndexGenerator(ActionGenerator):
         self.indexes = indexes
 
     def __iter__(self):
-        for _, indname, _, _ in self.indexes:
+        for _, indname, _, _, _ in self.indexes:
             yield DropIndexAction(indname)
 
 
