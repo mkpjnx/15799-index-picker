@@ -9,7 +9,7 @@ import action_generation.index_actions as index_actions
 import db_connector
 
 COST_EST_ITRS = 5
-MAX_IND_WIDTH = 2
+MAX_IND_WIDTH = 1
 FILTER_THRESH = 0.999
 
 def get_workload_colrefs(filtered):
