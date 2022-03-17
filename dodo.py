@@ -36,7 +36,7 @@ def task_project1_setup():
     return {
         # A list of actions. This can be bash or Python callables.
         "actions": [
-            f"sudo pip3 install -r ./requirements.txt",
+            f"pip3 install -r ./requirements.txt",
             "sudo apt-get install -y postgresql-common",
             "sudo sh /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y",
             "sudo apt-get update",
